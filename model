@@ -32,14 +32,6 @@ function output = crayfishsim()
     kK=10; % K channel activation constant
     Krev=-100; % K channel reversal potential
     tauK=10; % K channel time constant
-    kMSK0=10;
-    kMSK=120;
-    tauMSK=150;
-    IMSKmax=100;
-    EMSKrev=-1000;
-    gMSK=IMSKmax./(Erest-EMSKrev);
-    gKleak=0.7;
-
     
 %       set initial conditions for stretch protocol
     
@@ -58,6 +50,8 @@ function output = crayfishsim()
         sig0=k0*(1-exp(-i/tau0));
         P0=1./(1+kb.*exp(-s.*(sig-sig0).^q));
         Is=P0.*g*(Erest-Esrev);
+        
+%% For noise robustness testing, uncomment following lines and replace all instances of "Is" with "Isnoise"
         
 %         var1=-10;
 %         var2=10;
@@ -231,26 +225,7 @@ function output = crayfishsim()
             
         end
         
-%         There needs to be some balance between the two following features
-%         to account for the release phase hyperpolarisation. There is some
-%         initial K component and then a secondary K component.
-        
-%         if sigm<70000
-%             
-%             gK2=-1;
-%             g=Ismax./(Erest-Esrev)+gK2;
-%             
-%             else sigm<50000; 
-%             
-%                 sigMSK=kMSK0.*(1-exp(-i./tauMSK));
-%                 PMSK=1./(1+kMSK*exp(-s.*(sig-sigMSK).^q));
-%                 IMSK=PMSK.*gMSK.*(Erest-Esrev);
-% 
-% 
-%                 Emem=Erest+(((1+kb.*exp(-s.*(sig-sig0).^q)).^-1).*Is+gleak.*(Erest-Esrev))+(((1+kMSK.*exp(-s.*(sigMSK-sig0).^q)).^-1).*IMSK+gKleak.*(Erest-EMSKrev))./Cm;
-%             
-%         end
-        
+
         result(i,1,:) = e;
         result(i,2,:) = k; 
         result(i,3,:) = sigm;
@@ -261,11 +236,15 @@ function output = crayfishsim()
     end
     
 
+% Output graphs. K=_:6, depending on number of plots to view
+
     for K=6:6
         output=result;
         figure;
     
         for L=1:39
+        
+% Value of L should vary with number of stretch increments
         
         plot(result(:,K,L))
         hold on
