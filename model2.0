@@ -1,0 +1,286 @@
+function output = crayfishsim()
+
+    k1=400; % spring constant for linear spring
+    k2=2200; %   "        "    "   nonlinear spring
+    n=1.5; % power constant    "       "       "
+    B=12; % Dashpot constant
+    kb=106; % linear Boltzmann constant
+%     kb2=18.9; % square   "         "
+    s=0.00277; % linear sensitivity constant
+%     s2=0.995*10^-6; % square  "    
+    q=1; % power constant (q=1 or 2)
+    m=25; % tension conversion factor, between 20 and 30
+    k0=12; % MSC adaptation constant
+    tau0=100; % MSC adaptation time constant
+    Ismax=-200; % saturated MSC current at large extension
+    Esrev=15; % MSC reversal potential
+    Cm=4.3; % membrane capacitance
+    gleak=0.56; % leak conductance
+    Erest=-65; % resting membrane potential between -55 and -70
+    Eleak=Erest; % leak current reversal potential
+    e0=0; % initial extension
+    a=0.08:0.005:0.08; % rate of extension.  
+    b=-0.08:-0.005:-0.08; % rate of relaxation. 
+    g=Ismax/(Erest-Esrev); % conductance
+    NaAct=-50; % VNaC activation potential
+    kNa=6; % VNaC activation constant
+    Narev=50; % VNaC reversal potential
+    tauNa=10; % VNaC time constant
+    Naleak=0.000008; % VNaC leak conductance
+    Kleak=0.002; % K channel leak conductance
+    Kact=5; % K channel activation potential
+    kK=5; % K channel activation constant
+    Krev=-100; % K channel reversal potential
+    tauK=10; % K channel time constant
+    kMSK0=12;
+    kMSK=120;
+    tauMSK=100;
+    IMSKmax=-200;
+    EMSKrev=-100;
+    gMSK=IMSKmax./(Erest-EMSKrev);
+    gKleak=0.7;
+
+    
+%       set initial conditions for stretch protocol
+    
+    temp=100;   
+    temp2=0;
+    e=e0+a;
+    
+%       initiate dynamic stretch phase
+    
+    for i=0:100
+       
+        e=e+a;
+        k=(e-e0).*B*k1+k2.*(e-e0).^n;
+        sigm=k.*(e-e0);
+        sig=sigm./m;
+        sig0=k0*(1-exp(-i/tau0));
+        P0=1./(1+kb.*exp(-s.*(sig-sig0).^q));
+        Is=P0.*g*(Erest-Esrev);
+        
+%         var1=-10;
+%         var2=10;
+%         noise=var1+(var2-var1)*rand(1);
+%         Isnoise=Is+noise;
+        
+        Emem=Erest-(((1+kb.*exp(-s.*(sig-sig0).^q)).^-1).*Is+gleak*(Erest-Esrev))./Cm;
+                
+%       conditional statements encode voltage-gated channels
+        
+        if Emem>-50 
+            
+            if temp2==0
+                temp=i;
+                temp2=1;
+            end
+            
+            sigNa=1-exp(-i/tauNa);
+            PV=1./(1+exp(((Emem-NaAct).*sigNa)./kNa));
+            gNa=(PV.*(Narev-Emem)+Naleak.*(Eleak-Emem))./(Cm.*Emem);           
+            sigK=1-exp(-i./tauK);
+            PK=1./(1+exp(((Emem-Kact).*sigK)./kK));
+            gK=(PK.*(Krev-Emem)+Kleak.*(Eleak-Emem))./(Cm.*Emem);
+            g=Ismax./(Erest-Esrev)+gNa+gK;
+        
+        end
+        
+        if i>=(temp+tauNa)
+            
+            g=Ismax./(Erest-Esrev)+gK;
+            
+        end
+        
+                
+        if i>(temp+tauK)
+            
+           g=Ismax./(Erest-Esrev); 
+            
+        end
+%         
+% %       A stretch-activated potassium channel activates here, when the
+% %       tension is sufficient.
+%         
+%         if sigm>66000
+%             
+%             gK2=-1;
+%             g=Ismax./(Erest-Esrev)+gK2;
+%             
+%         end
+                                
+        result(i+1,1,:) = e;
+        result(i+1,2,:) = k;
+        result(i+1,3,:) = sigm;
+        result(i+1,4,:) = P0;
+        result(i+1,5,:) = Is;
+        result(i+1,6,:) = Emem;    
+        
+    end
+    
+%       hold phase
+    
+    for i=101:200
+        
+        k=((e-e0).*B*k1+k2.*(e-e0).^n)-(k1.*(e-e0).^n);
+        sigm=k.*(e-e0);
+        sig=sigm./m;
+        sig0=k0*(1-exp(-i/tau0));
+        P0=1./(1+kb.*exp(-s.*(sig-sig0).^q));
+        Is=P0.*g*(Erest-Esrev);
+
+%         var1=-10;
+%         var2=10;
+%         noise=var1+(var2-var1)*rand(1);
+%         Isnoise=Is+noise;
+        
+        Emem=Erest-(((1+kb.*exp(-s.*(sig-sig0).^q)).^-1).*Is+gleak.*(Erest-Esrev))./Cm;    
+        
+        if Emem>-50 
+            
+            if temp2==0
+                temp=i;
+                temp2=1;
+            end
+            
+            sigNa=1-exp(-i./tauNa);
+            PV=1./(1+exp(((Emem-NaAct).*sigNa)./kNa));
+            gNa=(PV.*(Narev-Emem)+Naleak.*(Eleak-Emem))./(Cm.*Emem);           
+            sigK=1-exp(-i./tauK);
+            PK=1./(1+exp(((Emem-Kact).*sigK)./kK));
+            gK=(PK.*(Krev-Emem)+Kleak.*(Eleak-Emem))./(Cm.*Emem);
+            g=Ismax./(Erest-Esrev)+gNa+gK;
+        
+        end
+        
+        if i>=(temp+tauNa)
+            
+            g=Ismax./(Erest-Esrev)+gK;
+            
+        end
+        
+                
+        if i>(temp+tauK)
+          
+           g=Ismax./(Erest-Esrev); 
+            
+        end 
+        
+        
+%         if sigm>66000
+%             
+%             gK2=-1;
+%             g=Ismax./(Erest-Esrev)+gK2;
+%            
+%         else sigm<50000; 
+%             
+%                 sigMSK=kMSK0.*(1-exp(-i./tauMSK));
+%                 PMSK=1./(1+kMSK*exp(-s.*(sig-sigMSK).^q));
+%                 IMSK=PMSK.*gMSK.*(Erest-Esrev);
+% 
+% 
+%                 Emem=Erest+(((1+kb.*exp(-s.*(sig-sig0).^q)).^-1).*Is+gleak.*(Erest-Esrev))+(((1+kMSK.*exp(-s.*(sigMSK-sig0).^q)).^-1).*IMSK+gKleak.*(Erest-EMSKrev))./Cm;
+%             
+%         end
+        
+        result(i,1,:) = e;
+        result(i,2,:) = k; 
+        result(i,3,:) = sigm;
+        result(i,4,:) = P0;
+        result(i,5,:) = Is;
+        result(i,6,:) = Emem;
+        
+    end
+    
+%       release phase
+    
+    for i=201:300
+        
+        e=e+b;
+        k=((e-e0).*B*k1+k2.*(e-e0).^n)-(k1.*(e-e0).^n);
+        sigm=k.*(e-e0);
+        sig=sigm./m;
+        sig0=k0*(1-exp(-i/tau0));
+        P0=1./(1+kb*exp(-s.*(sig-sig0).^q));
+        Is=P0.*g*(Erest-Esrev);
+
+%         var1=-5;
+%         var2=5;
+%         noise=var1+(var2-var1)*rand(1);
+%         Isnoise=Is+noise;
+
+        Emem=Erest-(((1+kb.*exp(-s.*(sig-sig0).^q)).^-1).*Is+gleak.*(Erest-Esrev))./Cm;
+       
+        if Emem>-50 
+            
+            if temp2==0
+                temp=i;
+                temp2=1;
+            end
+            
+            sigNa=1-exp(-i./tauNa);
+            PV=1./(1+exp(((Emem-NaAct).*sigNa)./kNa));
+            gNa=(PV.*(Narev-Emem)+Naleak.*(Eleak-Emem))./(Cm.*Emem);           
+            sigK=1-exp(-i./tauK);
+            PK=1./(1+exp(((Emem-Kact).*sigK)./kK));
+            gK=(PK.*(Krev-Emem)+Kleak.*(Eleak-Emem))./(Cm.*Emem);
+            g=Ismax./(Erest-Esrev)+gNa+gK;
+        
+        end
+        
+        if i>=(temp+tauNa)
+            
+            g=Ismax./(Erest-Esrev)+gK;
+            
+        end
+        
+                
+        if i>(temp+tauK)
+            
+           g=Ismax./(Erest-Esrev); 
+            
+        end
+        
+%         There needs to be some balance between the two following features
+%         to account for the release phase hyperpolarisation. There is some
+%         initial K component and then a secondary K component.
+%         
+%         if sigm>66000
+%             
+%             gK2=-1;
+%             g=Ismax./(Erest-Esrev)+gK2;
+%             
+        if sigm<20000; 
+            
+                sigMSK=kMSK0.*(1-exp(-i./tauMSK));
+                PMSK=1./(1+kMSK*exp(-s.*(sig-sigMSK).^q));
+                IMSK=PMSK.*gMSK.*(Erest-Esrev);
+
+
+                Emem=Erest+(((1+kb.*exp(-s.*(sig-sig0).^q)).^-1).*Is+gleak.*(Erest-Esrev))+(((1+kMSK.*exp(-s.*(sigMSK-sig0).^q)).^-1).*IMSK+gKleak.*(Erest-EMSKrev))./Cm;
+            
+        end
+        
+        result(i,1,:) = e;
+        result(i,2,:) = k; 
+        result(i,3,:) = sigm;
+        result(i,4,:) = P0;
+        result(i,5,:) = Is;
+        result(i,6,:) = Emem;
+                      
+    end
+    
+
+    for K=6:6
+        output=result;
+        figure;
+    
+        for L=1:1
+        
+        plot(result(:,K,L))
+        hold on
+        
+        end
+        
+    end
+        
+end
